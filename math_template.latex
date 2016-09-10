@@ -1,0 +1,23 @@
+\documentclass[varwidth,border=1pt]{standalone}
+
+\usepackage[fleqn]{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{etoolbox}
+
+\newcommand{\zerodisplayskips}{%
+    \setlength{\abovedisplayskip}{0pt}
+    \setlength{\belowdisplayskip}{0pt}
+    \setlength{\abovedisplayshortskip}{0pt}
+    \setlength{\belowdisplayshortskip}{0pt}}
+\appto{\normalsize}{\zerodisplayskips}
+\appto{\small}{\zerodisplayskips}
+\appto{\footnotesize}{\zerodisplayskips}
+
+\setlength{\mathindent}{0pt}
+
+\begin{document}
+    \begin{align*}
+        __DATA__
+    \end{align*}
+\end{document}
