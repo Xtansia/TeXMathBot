@@ -1,5 +1,8 @@
 \documentclass[varwidth,border=1pt]{standalone}
 
+\usepackage[utf8x]{inputenc}
+\usepackage{lmodern}
+\usepackage{textcomp}
 \usepackage[fleqn]{amsmath}
 \usepackage{amsfonts}
 \usepackage{amssymb}
