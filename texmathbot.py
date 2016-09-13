@@ -10,6 +10,7 @@ import aiohttp
 from discord.ext import commands
 import logging
 import os
+import re
 import sys
 import tempfile
 
@@ -21,7 +22,7 @@ if 'DISCORD_TOKEN' not in os.environ:
 
 discord_token = os.environ['DISCORD_TOKEN']
 command_prefix = os.environ.get('COMMAND_PREFIX', '%')
-latex2png_url = os.environ.get('LATEX2PNG_URL', 'http://latex2png:8080/')
+pngifier_url = os.environ.get('PNGIFIER_URL', 'http://pngifier:8080/')
 
 if not os.path.isfile('math_template.latex'):
     print('math_template.latex must exist', file=sys.stderr)
@@ -58,24 +59,22 @@ def setup_logging(logger_name, stdout_level=logging.WARN):
     return my_logger
 
 
-async def generate_latex_image(latex):
+async def pngify(source_format, content):
     async with aiohttp.ClientSession() as session:
-        async with session.post(latex2png_url,
-                                data=bytes(latex, 'utf8')) as resp:
+        async with session.post(pngifier_url + source_format,
+                                data=bytes(content, 'utf8')) as resp:
             if resp.status == 200:
-                img_filedesc, img_filename = tempfile.mkstemp(suffix='.png')
-
-                with os.fdopen(img_filedesc, 'wb') as img_filehandle:
-                    img_filehandle.write(await resp.read())
-
-                return img_filename, None
+                file_descriptor, file_name = tempfile.mkstemp(suffix='.png')
+                with os.fdopen(file_descriptor, 'wb') as file_handle:
+                    file_handle.write(await resp.read())
+                return file_name, None
             else:
-                logger.error('Latex2PNG Error: %s' % await resp.text())
+                logger.error('PNGifier Error: %s' % await resp.text())
 
                 if resp.status == 408:
                     return None, 'Timed Out'
                 elif resp.status == 400:
-                    return None, 'LaTeX Rendering Failed'
+                    return None, 'Rendering Failed'
                 else:
                     return None, 'Unexpected Response: %03d - %s' % (
                         resp.status, resp.reason)
@@ -140,13 +139,79 @@ async def math(ctx, *, mathexpr: str):
     logger.info('[%s] math `%s`' % (ctx.message.id, mathexpr))
     latex = math_template.replace('__DATA__', mathexpr)
 
-    img_filename, error_msg = await generate_latex_image(latex)
+    img_filename, error_msg = await pngify('latex', latex)
 
     if img_filename is not None:
         await respond(ctx.message, None, file=img_filename)
         os.remove(img_filename)
     else:
         await respond(ctx.message, 'Error [%s] : %s' % (mathexpr, error_msg))
+
+
+abc_field_pattern = re.compile(r"^([A-Z]):(.+)$")
+
+
+@bot.command(pass_context=True)
+async def music(ctx, *, tune: str):
+    """Renders an ABC notation tune to a PNG"""
+
+    await bot.type()
+    logger.info('[%s] music `%s`' % (ctx.message.id, tune))
+
+    abc_headers = {
+        'M': '4/4',
+        'L': '1/4',
+        'K': 'Cmaj'
+    }
+    abc_notes = ''
+
+    lines = tune.split('\n')
+    i = 0
+    while i < len(lines):
+        match = abc_field_pattern.match(lines[i])
+        if match is not None:
+            abc_headers[match.group(1)] = match.group(2)
+            if match.group(1) == 'K':
+                break
+        else:
+            break
+        i += 1
+
+    while i < len(lines):
+        abc_notes += lines[i] + '\n'
+        i += 1
+
+    abc = 'X:1\n'
+
+    for field in filter(lambda f: f not in ['X','K'], abc_headers.keys()):
+        abc += '%s:%s\n' % (field, abc_headers[field])
+
+    abc += 'K:%s\n' % abc_headers['K']
+    abc += abc_notes
+
+    img_filename, error_msg = await pngify('abc', abc)
+
+    if img_filename is not None:
+        await respond(ctx.message, None, file=img_filename)
+        os.remove(img_filename)
+    else:
+        await respond(ctx.message, 'Error [%s] : %s' % (tune, error_msg))
+
+
+@bot.command(pass_context=True)
+async def gplot(ctx, *, program: str):
+    """Renders Gnuplot to a PNG"""
+
+    await bot.type()
+    logger.info('[%s] plot `%s`' % (ctx.message.id, program))
+
+    img_filename, error_msg = await pngify('gnuplot', program)
+
+    if img_filename is not None:
+        await respond(ctx.message, None, file=img_filename)
+        os.remove(img_filename)
+    else:
+        await respond(ctx.message, 'Error [%s] : %s' % (program, error_msg))
 
 
 logger = setup_logging('texmathbot', stdout_level=logging.INFO)
