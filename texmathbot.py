@@ -130,6 +130,16 @@ async def on_message_edit(before, after):
     await bot.process_commands(after)
 
 
+@bot.event
+async def on_message_delete(message):
+    logger.info('Message Deleted [%s] : `%s`' % (message.id, message.content))
+    msg_id = '%s#%s' % (message.channel.id, message.id)
+    if msg_id in responses:
+        logger.info('Found old response: %s' % responses[msg_id])
+        await bot.delete_message(
+            await bot.get_message(message.channel, responses[msg_id]))
+
+
 @bot.command(pass_context=True)
 async def math(ctx, *, mathexpr: str):
     """Renders a LaTeX math expression to a PNG"""
