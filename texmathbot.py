@@ -155,7 +155,7 @@ async def math(ctx, *, mathexpr: str):
         await respond(ctx.message, None, file=img_filename)
         os.remove(img_filename)
     else:
-        await respond(ctx.message, 'Error [%s] : %s' % (mathexpr, error_msg))
+        await respond(ctx.message, 'Error [%s] : %s' % (mathexpr[:50], error_msg))
 
 
 abc_field_pattern = re.compile(r"^([A-Z]):(.+)$")
@@ -168,44 +168,18 @@ async def music(ctx, *, tune: str):
     await bot.type()
     logger.info('[%s] music `%s`' % (ctx.message.id, tune))
 
-    abc_headers = {
-        'M': '4/4',
-        'L': '1/4',
-        'K': 'Cmaj'
-    }
-    abc_notes = ''
-
     lines = tune.split('\n')
-    i = 0
-    while i < len(lines):
-        match = abc_field_pattern.match(lines[i])
-        if match is not None:
-            abc_headers[match.group(1)] = match.group(2)
-            if match.group(1) == 'K':
-                break
-        else:
-            break
-        i += 1
 
-    while i < len(lines):
-        abc_notes += lines[i] + '\n'
-        i += 1
+    if abc_field_pattern.match(lines[0]) is None:
+        tune = 'X:1\nM:4/4\nL:1/4\nK:Cmaj\n' + tune
 
-    abc = 'X:1\n'
-
-    for field in filter(lambda f: f not in ['X','K'], abc_headers.keys()):
-        abc += '%s:%s\n' % (field, abc_headers[field])
-
-    abc += 'K:%s\n' % abc_headers['K']
-    abc += abc_notes
-
-    img_filename, error_msg = await pngify('abc', abc)
+    img_filename, error_msg = await pngify('abc', tune)
 
     if img_filename is not None:
         await respond(ctx.message, None, file=img_filename)
         os.remove(img_filename)
     else:
-        await respond(ctx.message, 'Error [%s] : %s' % (tune, error_msg))
+        await respond(ctx.message, 'Error [%s] : %s' % (tune[:50], error_msg))
 
 
 @bot.command(pass_context=True)
@@ -221,7 +195,7 @@ async def gplot(ctx, *, program: str):
         await respond(ctx.message, None, file=img_filename)
         os.remove(img_filename)
     else:
-        await respond(ctx.message, 'Error [%s] : %s' % (program, error_msg))
+        await respond(ctx.message, 'Error [%s] : %s' % (program[:50], error_msg))
 
 
 logger = setup_logging('texmathbot', stdout_level=logging.INFO)
