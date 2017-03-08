@@ -7,6 +7,10 @@
 \usepackage{amsfonts}
 \usepackage{amssymb}
 \usepackage{etoolbox}
+\usepackage{mathtools}
+
+\DeclarePairedDelimiter\ceil{\lceil}{\rceil}
+\DeclarePairedDelimiter\floor{\lfloor}{\rfloor}
 
 \newcommand{\zerodisplayskips}{%
     \setlength{\abovedisplayskip}{0pt}
