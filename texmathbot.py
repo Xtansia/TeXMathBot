@@ -8,11 +8,13 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 import aiohttp
 from discord.ext import commands
+import discord
 import logging
 import os
 import re
 import sys
 import tempfile
+from typing import Optional
 
 # Settings
 
@@ -89,19 +91,18 @@ bot = commands.Bot(command_prefix=command_prefix,
 responses = {}
 
 
-async def respond(message, text, file=None):
-    msg_id = '%s#%s' % (message.channel.id, message.id)
+async def respond(ctx: commands.Context, text: Optional[str], file: str = None):
+    msg_id = '%s#%s' % (ctx.channel.id, ctx.message.id)
 
     if msg_id in responses:
         logger.info('Found old response: %s' % responses[msg_id])
-        await bot.delete_message(
-            await bot.get_message(message.channel, responses[msg_id]))
+        old_resp: discord.Message = await ctx.fetch_message(responses[msg_id])
+        await old_resp.delete()
 
     if file is not None:
-        resp = await bot.upload(file, filename='%s.%s' % (
-            message.id, file[file.rfind('.') + 1:]), content=text)
+        resp = await ctx.send(text, file=discord.File(file, filename='%s.%s' % (ctx.message.id, file[file.rfind('.') + 1:])))
     else:
-        resp = await bot.say(text)
+        resp = await ctx.send(text)
 
     responses[msg_id] = resp.id
 
@@ -109,8 +110,8 @@ async def respond(message, text, file=None):
 @bot.event
 async def on_ready():
     logger.info('Logged in as %s [%s]' % (bot.user.name, bot.user.id))
-    for server in bot.servers:
-        logger.info('In server %s [%s]' % (server.name, server.id))
+    for guild in bot.guilds:
+        logger.info('In guild %s [%s]' % (guild.name, guild.id))
 
 
 @bot.event
@@ -131,71 +132,71 @@ async def on_message_edit(before, after):
 
 
 @bot.event
-async def on_message_delete(message):
+async def on_message_delete(message: discord.Message):
     logger.info('Message Deleted [%s] : `%s`' % (message.id, message.content))
-    msg_id = '%s#%s' % (message.channel.id, message.id)
+    channel: discord.TextChannel = message.channel
+    msg_id = '%s#%s' % (channel.id, message.id)
     if msg_id in responses:
         logger.info('Found old response: %s' % responses[msg_id])
-        await bot.delete_message(
-            await bot.get_message(message.channel, responses[msg_id]))
+        resp_msg = await channel.fetch_message(responses[msg_id])
+        await resp_msg.delete()
 
 
-@bot.command(pass_context=True)
-async def math(ctx, *, mathexpr: str):
+@bot.command()
+async def math(ctx: commands.Context, *, mathexpr: str):
     """Renders a LaTeX math expression to a PNG"""
 
-    await bot.type()
+    async with ctx.typing():
+        logger.info('[%s] math `%s`' % (ctx.message.id, mathexpr))
+        latex = math_template.replace('__DATA__', mathexpr)
 
-    logger.info('[%s] math `%s`' % (ctx.message.id, mathexpr))
-    latex = math_template.replace('__DATA__', mathexpr)
+        img_filename, error_msg = await pngify('latex', latex)
 
-    img_filename, error_msg = await pngify('latex', latex)
-
-    if img_filename is not None:
-        await respond(ctx.message, None, file=img_filename)
-        os.remove(img_filename)
-    else:
-        await respond(ctx.message, 'Error [%s] : %s' % (mathexpr[:50], error_msg))
+        if img_filename is not None:
+            await respond(ctx, None, file=img_filename)
+            os.remove(img_filename)
+        else:
+            await respond(ctx, 'Error [%s] : %s' % (mathexpr[:50], error_msg))
 
 
 abc_field_pattern = re.compile(r"^([A-Z]):(.+)$")
 
 
-@bot.command(pass_context=True)
-async def music(ctx, *, tune: str):
+@bot.command()
+async def music(ctx: commands.Context, *, tune: str):
     """Renders an ABC notation tune to a PNG"""
 
-    await bot.type()
-    logger.info('[%s] music `%s`' % (ctx.message.id, tune))
+    async with ctx.typing():
+        logger.info('[%s] music `%s`' % (ctx.message.id, tune))
 
-    lines = tune.split('\n')
+        lines = tune.split('\n')
 
-    if abc_field_pattern.match(lines[0]) is None:
-        tune = 'X:1\nM:4/4\nL:1/4\nK:Cmaj\n' + tune
+        if abc_field_pattern.match(lines[0]) is None:
+            tune = 'X:1\nM:4/4\nL:1/4\nK:Cmaj\n' + tune
 
-    img_filename, error_msg = await pngify('abc', tune)
+        img_filename, error_msg = await pngify('abc', tune)
 
-    if img_filename is not None:
-        await respond(ctx.message, None, file=img_filename)
-        os.remove(img_filename)
-    else:
-        await respond(ctx.message, 'Error [%s] : %s' % (tune[:50], error_msg))
+        if img_filename is not None:
+            await respond(ctx, None, file=img_filename)
+            os.remove(img_filename)
+        else:
+            await respond(ctx, 'Error [%s] : %s' % (tune[:50], error_msg))
 
 
-@bot.command(pass_context=True)
-async def gplot(ctx, *, program: str):
+@bot.command()
+async def gplot(ctx: commands.Context, *, program: str):
     """Renders Gnuplot to a PNG"""
 
-    await bot.type()
-    logger.info('[%s] plot `%s`' % (ctx.message.id, program))
+    async with ctx.typing():
+        logger.info('[%s] plot `%s`' % (ctx.message.id, program))
 
-    img_filename, error_msg = await pngify('gnuplot', program)
+        img_filename, error_msg = await pngify('gnuplot', program)
 
-    if img_filename is not None:
-        await respond(ctx.message, None, file=img_filename)
-        os.remove(img_filename)
-    else:
-        await respond(ctx.message, 'Error [%s] : %s' % (program[:50], error_msg))
+        if img_filename is not None:
+            await respond(ctx, None, file=img_filename)
+            os.remove(img_filename)
+        else:
+            await respond(ctx, 'Error [%s] : %s' % (program[:50], error_msg))
 
 
 logger = setup_logging('texmathbot', stdout_level=logging.INFO)
